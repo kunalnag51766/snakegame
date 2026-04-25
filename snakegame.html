@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Snake Game</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #282c34;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.game-controls {
+    margin-bottom: 10px;
+}
+
+button {
+    margin: 5px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    background: #444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    transition: 0.2s;
+}
+
+button:hover {
+    background: #666;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+button:disabled {
+    background: #222;
+    color: #777;
+    cursor: not-allowed;
+}
+
+.game-board {
+    width: min(90vmin, 400px);
+    height: min(90vmin, 400px);
+    background-color: #111;
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    grid-template-rows: repeat(20, 1fr);
+    border: 2px solid #00ff88;
+    box-shadow: 0 0 20px rgba(0,255,136,0.2);
+}
+
+.game-board div {
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.snake {
+    background-color: #00ff88;
+    border-radius: 4px;
+    box-shadow: 0 0 6px #00ff88;
+}
+
+.food {
+    background-color: #ff3b3b;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #ff3b3b;
+}
+
+.direction-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.horizontal-controls {
+    display: flex;
+}
+
+.score {
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="score">Score: <span id="score">0</span></div>
+
+<div class="game-controls">
+    <button id="startButton">Start</button>
+    <button id="stopButton" disabled>Stop</button>
+    <label>Speed: <span id="speedValue">100</span> ms</label>
+    <input type="range" id="speedControl" min="50" max="300" value="100">
+</div>
+
+<div class="game-board" id="gameBoard"></div>
+
+<div class="direction-controls">
+    <button id="upButton">Up</button>
+    <div class="horizontal-controls">
+        <button id="leftButton">Left</button>
+        <button id="rightButton">Right</button>
+    </div>
+    <button id="downButton">Down</button>
+</div>
+
+<script>
+const gameBoard = document.getElementById("gameBoard");
+const startButton = document.getElementById("startButton");
+const stopButton = document.getElementById("stopButton");
+const speedControl = document.getElementById("speedControl");
+const speedValue = document.getElementById("speedValue");
+const scoreDisplay = document.getElementById("score");
+
+const upButton = document.getElementById("upButton");
+const downButton = document.getElementById("downButton");
+const leftButton = document.getElementById("leftButton");
+const rightButton = document.getElementById("rightButton");
+
+const boardSize = 20;
+const tileCount = boardSize * boardSize;
+const boardTiles = [];
+
+let snakeBody = [{ x: 10, y: 10 }];
+let food = getRandomFoodPosition();
+let direction = { x: 1, y: 0 };
+let nextDirection = direction;
+
+let gameOver = false;
+let gameInterval;
+let score = 0;
+
+function initializeBoard() {
+    gameBoard.innerHTML = '';
+    boardTiles.length = 0;
+
+    for (let i = 0; i < tileCount; i++) {
+        const tile = document.createElement("div");
+        gameBoard.appendChild(tile);
+        boardTiles.push(tile);
+    }
+}
+
+function startGame() {
+    if (gameInterval) return;
+
+    gameOver = false;
+    snakeBody = [{ x: 10, y: 10 }];
+    direction = { x: 1, y: 0 };
+    nextDirection = direction;
+    food = getRandomFoodPosition();
+    score = 0;
+    scoreDisplay.textContent = score;
+
+    startButton.disabled = true;
+    stopButton.disabled = false;
+
+    gameInterval = setInterval(updateGame, speedControl.value);
+}
+
+function stopGame() {
+    clearInterval(gameInterval);
+    gameInterval = null;
+    startButton.disabled = false;
+    stopButton.disabled = true;
+}
+
+function updateGame() {
+    if (gameOver) {
+        showGameOver();
+        stopGame();
+        return;
+    }
+
+    direction = nextDirection;
+    moveSnake();
+    checkCollision();
+    updateBoard();
+}
+
+function updateBoard() {
+    boardTiles.forEach(tile => tile.classList.remove("snake", "food"));
+
+    snakeBody.forEach(segment => {
+        const index = segment.y * boardSize + segment.x;
+        if (boardTiles[index]) boardTiles[index].classList.add("snake");
+    });
+
+    const foodIndex = food.y * boardSize + food.x;
+    boardTiles[foodIndex].classList.add("food");
+}
+
+function moveSnake() {
+    const head = {
+        x: snakeBody[0].x + direction.x,
+        y: snakeBody[0].y + direction.y
+    };
+
+    snakeBody.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+        score++;
+        scoreDisplay.textContent = score;
+        food = getRandomFoodPosition();
+    } else {
+        snakeBody.pop();
+    }
+}
+
+function checkCollision() {
+    const head = snakeBody[0];
+
+    if (
+        head.x < 0 || head.x >= boardSize ||
+        head.y < 0 || head.y >= boardSize
+    ) {
+        gameOver = true;
+    }
+
+    for (let i = 1; i < snakeBody.length; i++) {
+        if (snakeBody[i].x === head.x && snakeBody[i].y === head.y) {
+            gameOver = true;
+        }
+    }
+}
+
+function getRandomFoodPosition() {
+    let position;
+    do {
+        position = {
+            x: Math.floor(Math.random() * boardSize),
+            y: Math.floor(Math.random() * boardSize)
+        };
+    } while (snakeBody.some(s => s.x === position.x && s.y === position.y));
+
+    return position;
+}
+
+function showGameOver() {
+    alert("Game Over! Score: " + score);
+}
+
+// Controls
+upButton.onclick = () => direction.y === 0 && (nextDirection = { x: 0, y: -1 });
+downButton.onclick = () => direction.y === 0 && (nextDirection = { x: 0, y: 1 });
+leftButton.onclick = () => direction.x === 0 && (nextDirection = { x: -1, y: 0 });
+rightButton.onclick = () => direction.x === 0 && (nextDirection = { x: 1, y: 0 });
+
+// Keyboard
+document.addEventListener("keydown", e => {
+    if (e.key === "ArrowUp" && direction.y === 0) nextDirection = { x: 0, y: -1 };
+    if (e.key === "ArrowDown" && direction.y === 0) nextDirection = { x: 0, y: 1 };
+    if (e.key === "ArrowLeft" && direction.x === 0) nextDirection = { x: -1, y: 0 };
+    if (e.key === "ArrowRight" && direction.x === 0) nextDirection = { x: 1, y: 0 };
+});
+
+// Speed control
+speedControl.addEventListener("input", () => {
+    speedValue.textContent = speedControl.value;
+
+    if (gameInterval) {
+        clearInterval(gameInterval);
+        gameInterval = setInterval(updateGame, speedControl.value);
+    }
+});
+
+startButton.onclick = startGame;
+stopButton.onclick = stopGame;
+
+initializeBoard();
+</script>
+
+</body>
+</html>
